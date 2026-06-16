@@ -1,5 +1,5 @@
 
-# I.R.I.S. (Invariant Regression and Identification of Systems)
+# Invariant Regression and Identification of Systems
 
 A high-performance neuro-symbolic framework for the automated discovery, structural isolation, and distillation of non-linear governing ordinary differential equations from raw, highly coupled multivariate dynamic systems.
 
