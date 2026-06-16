@@ -1,6 +1,5 @@
 
-```markdown
-#Invariant Regression and Identification of Systems
+# I.R.I.S. (Invariant Regression and Identification of Systems)
 
 A high-performance neuro-symbolic framework for the automated discovery, structural isolation, and distillation of non-linear governing ordinary differential equations from raw, highly coupled multivariate dynamic systems.
 
@@ -30,6 +29,7 @@ This framework bridges the gap between deep learning and analytical mechanics. I
 │   └── symbolic_engine.py       # Core IRIS class (SINDy matrix + Diophantine mapping)
 ├── generate_data.py             # Multi-environment high-fidelity data generation engine
 ├── main.py                      # Global orchestrator and standardized analytical logger
+├── requirements.txt             # Documented production dependencies
 └── README.md
 
 ```
@@ -60,13 +60,46 @@ The regression engine undergoes unified, blind testing across varying physical p
 ### Prerequisites
 
 * Python 3.10+
-* PyTorch 2.0+ (Configured for double-precision `float64`/`double` allocations)
-* Pandas, NumPy
+* Supported OS: Linux (Fedora/Ubuntu workstation verified), macOS, Windows
 
-### Production Pipeline Execution
+### Environment Setup
+
+1. **Clone the repository and navigate to the root directory:**
+```bash
+git clone <repository-url>
+cd iris-symbolic-engine
+
+```
+
+
+2. **Create and activate an isolated virtual environment (`venv`):**
+```bash
+# Linux / macOS
+python3 -m venv venv
+source venv/bin/activate
+
+# Windows (PowerShell)
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+
+```
+
+
+3. **Install production dependencies via `requirements.txt`:**
+```bash
+pip install --upgrade pip
+pip install -r requirements.txt
+
+```
+
+
+
+---
+
+## Production Pipeline Execution
 
 1. **Initialize the High-Fidelity Data Generator:**
-Set your target testing criteria (`'kinematics'`, `'oscillator'`, or `'coupled_inverse'`) in `generate_data.py` and run:
+Set your target testing criteria (`'kinematics'`, `'oscillator'`, or `'coupled_inverse'`) in `generate_data.py` and execute the benchmark data production:
 ```bash
 python generate_data.py
 
@@ -74,8 +107,12 @@ python generate_data.py
 
 
 2. **Execute System Identification:**
-Trigger the global orchestrator to analyze the broad-spectrum design matrix and recover the algebraic governing equation:
+Trigger the global orchestrator to analyze the broad-spectrum design matrix and recover the algebraic governing equation under professional logging formats:
 ```bash
 python main.py
 
 ```
+
+
+
+---
