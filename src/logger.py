@@ -1,11 +1,15 @@
 import logging
+import sys
+from rich.logging import RichHandler
 
 def setup_logger():
+    # Configuración del logger integrada con Rich para una terminal limpia y estilizada
     logging.basicConfig(
         level=logging.INFO,
-        format='%(asctime)s - [CIENTÍFICO-IA] - %(message)s',
-        datefmt='%H:%M:%S'
+        format="%(message)s",
+        datefmt="[%X]",
+        handlers=[RichHandler(rich_tracebacks=True, markup=True)]
     )
-    return logging.getLogger()
+    return logging.getLogger("IRIS")
 
-logger = setup_logger()
+log = setup_logger()

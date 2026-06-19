@@ -3,163 +3,106 @@ import numpy as np
 from fractions import Fraction
 
 class IRIS:
-    """Invariant Regression and Identification of Systems (I.R.I.S.)
-
-    A framework for automated symbolic regression that discovers underlying 
-    governing differential equations from raw tensor data using Sequentially 
-    Thresholded Least Squares (SINDy) and rational fraction mapping.
-    """
-
-    def __init__(self, threshold: float = 0.05, max_denominator: int = 20):
-        """Initializes the IRIS discovery engine.
-
-        Args:
-            threshold (float): Hard threshold value for feature pruning.
-            max_denominator (int): Maximum allowed denominator for rational fraction conversion.
-        """
+    def __init__(self, threshold=0.08):
+        # Hiperparámetro de corte estricto lambda = 0.08 según especificaciones del paper [cite: 38]
         self.threshold = threshold
-        self.max_denominator = max_denominator
         self.weights = None
         self.feature_names = []
+        self.last_mse = 0.0
 
-    def _build_design_matrix(self, X: torch.Tensor) -> np.ndarray:
-        """Constructs a comprehensive non-linear library mapping function.
-
-        Generates polynomial (up to degree 3), rational inverse (up to degree -3),
-        and trigonometric candidate terms from the input feature space.
-
-        Args:
-            X (torch.Tensor): Input tensor of shape [batch_size, num_features].
-
-        Returns:
-            np.ndarray: Expanded evaluation matrix of shape [batch_size, num_candidates].
-        """
-        num_vars = X.shape[1]
+    def _build_design_matrix(self, X):
+        X_np = X.detach().numpy() if torch.is_tensor(X) else np.array(X, dtype=np.float64)
+        X_np = X_np.astype(np.float64)
+        num_vars = X_np.shape[1]
+        
         terms = []
         self.feature_names = []
-        epsilon = 1e-15  # Numerical stabilizer for singularity avoidance
+        eps = 1e-15  # Estabilizador numérico estricto contra indeterminaciones por cero [cite: 27]
 
-        # --- Base Polynomial Library (Degrees 1 to 3) ---
+        # 1. Sub-biblioteca Polinomial Espacial (Hasta 3er Grado y términos cruzados) [cite: 23, 24]
         for i in range(num_vars):
-            terms.append(X[:, i:i+1])
-            self.feature_names.append(f"col_{i}")
-        
-        for i in range(num_vars):
+            terms.append(X_np[:, i:i+1])
+            self.feature_names.append(f"x{i}")
+            
             for j in range(i, num_vars):
-                terms.append(X[:, i:i+1] * X[:, j:j+1])
-                self.feature_names.append(f"col_{i}*col_{j}")
+                terms.append(X_np[:, i:i+1] * X_np[:, j:j+1])
+                self.feature_names.append(f"x{i}*x{j}")
                 
-        for i in range(num_vars):
-            for j in range(i, num_vars):
                 for k in range(j, num_vars):
-                    terms.append(X[:, i:i+1] * X[:, j:j+1] * X[:, k:k+1])
-                    self.feature_names.append(f"col_{i}*col_{j}*col_{k}")
+                    terms.append(X_np[:, i:i+1] * X_np[:, j:j+1] * X_np[:, k:k+1])
+                    self.feature_names.append(f"x{i}*x{j}*x{k}")
 
-        # --- Rational Inverse Library (Degrees -1 to -3) ---
+        # 2. Sub-biblioteca de Inversos Racionales y Singularidades Acopladas [cite: 25, 28]
         for i in range(num_vars):
-            terms.append(1.0 / (X[:, i:i+1] + epsilon))
-            self.feature_names.append(f"1/col_{i}")
+            terms.append(1.0 / (X_np[:, i:i+1] + eps))
+            self.feature_names.append(f"1/(x{i})")
             
-            terms.append(1.0 / (X[:, i:i+1]**2 + epsilon))
-            self.feature_names.append(f"1/col_{i}^2")
+            terms.append(1.0 / (X_np[:, i:i+1]**2 + eps))
+            self.feature_names.append(f"1/(x{i}^2)")
             
-            terms.append(1.0 / (X[:, i:i+1]**3 + epsilon))
-            self.feature_names.append(f"1/col_{i}^3")
+            terms.append(1.0 / (X_np[:, i:i+1]**3 + eps))
+            self.feature_names.append(f"1/(x{i}^3)")
+            
+            for j in range(num_vars):
+                if i != j:
+                    terms.append(X_np[:, i:i+1] / (X_np[:, j:j+1]**2 + eps))
+                    self.feature_names.append(f"x{i}/(x{j}^2)")
+                    
+                    terms.append(X_np[:, i:i+1] / (X_np[:, j:j+1]**3 + eps))
+                    self.feature_names.append(f"x{i}/(x{j}^3)")
 
-        # --- Vectorial Cross-Inverse Interactions (e.g., dx / r^n) ---
-        if num_vars >= 2:
-            for i in range(num_vars):
-                for j in range(num_vars):
-                    if i != j:
-                        terms.append(X[:, i:i+1] / (X[:, j:j+1]**2 + epsilon))
-                        self.feature_names.append(f"col_{i}/col_{j}^2")
-                        
-                        terms.append(X[:, i:i+1] / (X[:, j:j+1]**3 + epsilon))
-                        self.feature_names.append(f"col_{i}/col_{j}^3")
-
-        # --- Trigonometric Library ---
+        # 3. Sub-biblioteca Trigonométrica Espectral [cite: 29, 31]
         for i in range(num_vars):
-            terms.append(torch.sin(X[:, i:i+1]))
-            self.feature_names.append(f"sin(col_{i})")
-            
-            terms.append(torch.cos(X[:, i:i+1]))
-            self.feature_names.append(f"cos(col_{i})")
+            terms.append(np.sin(X_np[:, i:i+1]))
+            self.feature_names.append(f"sin(x{i})")
+            terms.append(np.cos(X_np[:, i:i+1]))
+            self.feature_names.append(f"cos(x{i})")
 
-        phi = torch.cat(terms, dim=1)
-        return phi.numpy()
+        return np.hstack(terms)
 
-    def fit(self, X_tensor: torch.Tensor, Y_tensor: torch.Tensor) -> float:
-        """Fits the governing law using Sequentially Thresholded Least Squares.
-
-        Args:
-            X_tensor (torch.Tensor): Predictor state vectors.
-            Y_tensor (torch.Tensor): Target continuous derivatives/accelerations.
-
-        Returns:
-            float: Maximum absolute error (L_infinity norm) of the fitted model.
-        """
-        Phi_np = self._build_design_matrix(X_tensor)
-        Y_np = Y_tensor.float().view(-1, 1).numpy()
+    def fit(self, X, Y):
+        Phi = self._build_design_matrix(X)
+        Y_np = Y.detach().numpy().reshape(-1, 1) if torch.is_tensor(Y) else Y.reshape(-1, 1)
+        Y_np = Y_np.astype(np.float64)
         
-        num_terms = Phi_np.shape[1]
-        active_indices = np.arange(num_terms)
+        active = np.arange(Phi.shape[1])
         
-        # Iterative sparse pruning optimization loop
+        # Algoritmo de Mínimos Cuadrados Secuenciales con Umbral Estricto (SINDy) [cite: 7, 35]
         for _ in range(20):
-            Phi_active = Phi_np[:, active_indices]
-            W_active, _, _, _ = np.linalg.lstsq(Phi_active, Y_np, rcond=None)
-            
-            W_full = np.zeros(num_terms)
-            W_full[active_indices] = W_active.flatten()
-            
-            new_active_indices = np.where(np.abs(W_full) >= self.threshold)[0]
-            if np.array_equal(active_indices, new_active_indices):
+            if len(active) == 0:
                 break
-            active_indices = new_active_indices
+            W_active, _, _, _ = np.linalg.lstsq(Phi[:, active], Y_np, rcond=None)
+            W_full = np.zeros(Phi.shape[1], dtype=np.float64)
+            W_full[active] = W_active.flatten()
+            
+            # Poda quirúrgica iterativa basada en el hiperparámetro estricto lambda [cite: 38]
+            active = np.where(np.abs(W_full) >= self.threshold)[0]
             
         self.weights = W_full
+        self.last_mse = float(np.mean((Phi @ self.weights.reshape(-1, 1) - Y_np)**2))
         
-        predictions = Phi_np @ self.weights.reshape(-1, 1)
-        max_error = np.max(np.abs(predictions - Y_np))
-        return float(max_error)
+        # Retorna el error bajo la norma del error supremo (L_infinity) [cite: 8, 54]
+        return float(np.max(np.abs(Phi @ self.weights.reshape(-1, 1) - Y_np)))
 
-    def get_discovered_law(self, target_name: str = "target", custom_names: list = None) -> str:
-        """Reconstructs the algebraic law converting coefficients to rational fractions.
-
-        Args:
-            target_name (str): Identifier label for the dependent variable.
-            custom_names (list): Explicit labels to replace abstract index columns.
-
-        Returns:
-            str: Formal mathematical string representation of the discovered law.
-        """
-        equation_components = []
-        
-        for name, weight in zip(self.feature_names, self.weights):
-            if abs(weight) > 1e-5:
-                # Precision Decimal: Conversion continuous float -> Fraction mapping
-                frac = Fraction(float(weight)).limit_denominator(self.max_denominator)
-                str_coefficient = f"{frac.numerator}/{frac.denominator}"
+    def get_discovered_law(self, target="y", names=None):
+        comps = []
+        for n, w in zip(self.feature_names, self.weights):
+            if abs(w) > 1e-9:
+                # Operador de Perfección Decimal Racional limitado estrictamente a d_max = 10 [cite: 42, 45]
+                f = Fraction(float(w)).limit_denominator(10)
+                s = "+" if f.numerator > 0 else "-"
                 
-                # Handling sign visualization formatting cleanly
-                if frac.numerator > 0:
-                    str_coefficient = f"+ {str_coefficient}"
+                if f.denominator == 1:
+                    comps.append(f"{s} {abs(f.numerator)} * {n}")
                 else:
-                    str_coefficient = f"- {abs(frac.numerator)}/{frac.denominator}"
-                
-                equation_components.append(f"{str_coefficient} * {name}")
-        
-        if not equation_components:
-            return f"{target_name} = 0"
-            
-        raw_law = " ".join(equation_components)
-        if raw_law.startswith("+ "):
-            raw_law = raw_law[2:]
-            
-        law_str = f"{target_name} = {raw_law}"
-        
-        if custom_names:
-            for idx, real_name in enumerate(custom_names):
-                law_str = law_str.replace(f"col_{idx}", real_name)
-                
-        return law_str
+                    comps.append(f"{s} {abs(f.numerator)}/{f.denominator} * {n}")
+                    
+        law = f"{target} = {' '.join(comps)}".replace("= +", "=")
+        if names:
+            for i, n in enumerate(names):
+                law = law.replace(f"x{i}", n)
+        return law
+
+    def get_latex_report(self, target, names):
+        law = self.get_discovered_law(target, names)
+        return f"\\section*{{Reporte Axiomático del Motor Simbólico IRIS}}\n\\textbf{{Ley Física Destilada:}} ${law}$\\\\\n\\textbf{{Error Cuadrático Medio (MSE):}} {self.last_mse:.2e}"

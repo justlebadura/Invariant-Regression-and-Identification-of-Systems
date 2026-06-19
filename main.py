@@ -1,47 +1,118 @@
 import torch
+import os
 import pandas as pd
-from src.symbolic_engine import IRIS
+import numpy as np
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
+from rich.progress import Progress, TextColumn, BarColumn, TaskProgressColumn
+from rich.prompt import Prompt, Confirm
+
+from src.logic_loss import RILLLoss
+from src.pinn_factory import PINN
+from src.distiller import SymbolicDistiller
+from src.logger import log
+
+console = Console()
+
+def print_banner():
+    # Añadida la 'r' inicial (raw string) para evitar SyntaxWarnings por escapes en ASCII art
+    console.print("\n")
+    console.print(Panel.fit(
+        r"      __  ______  ____ ____    __  ___ ____  ______ ____  ____  " "\n"
+        r"     / / / __  / / __// __/   /  |/  // __ \/_  __// __ \/ __ \ " "\n"
+        r"    / / / /_/ / / /_  _\ \   / /|_/ // / / / / /  / / / / /_/ / " "\n"
+        r"   /_/ /_/ /_/ /___//___/  /_/  /_/ \____/ /_/  /\____//_/\_\   " "\n"
+        " \n   [bold white]Framework Neuro-Simbólico para Descubrimiento de Leyes Dinámicas[/bold white]",
+        border_style="cyan"
+    ))
 
 def main():
-    """Execution pipeline for automated non-linear system identification."""
+    print_banner()
     
-    # Path settings
-    dataset_path = 'data/datos_3_cuerpos.csv'
-    target_variable = 'ay0'
-    exclusion_variables = ['ax0', 'ay0']
-
-    # Data loading and preprocessing pipeline
-    try:
-        df = pd.read_csv(dataset_path)
-    except FileNotFoundError:
-        print(f"[ERROR] Target dataset file not found at: {dataset_path}")
+    data_dir = "data"
+    if not os.path.exists(data_dir):
+        os.makedirs(data_dir)
+        console.print(Panel(f"[yellow]Carpeta '{data_dir}/' creada automáticamente. Por favor, deposita tus archivos CSV allí.[/yellow]"))
         return
 
-    # Dynamic separation of feature spaces
-    input_features = [col for col in df.columns if col not in exclusion_variables]
-    
-    X_tensor = torch.tensor(df[input_features].values, dtype=torch.float64)
-    Y_tensor = torch.tensor(df[target_variable].values, dtype=torch.float64)
+    files = [f for f in os.listdir(data_dir) if f.endswith('.csv')]
+    if not files:
+        console.print(Panel("[red]Error: No se encontraron archivos estructurados .csv en la ruta 'data/'[/red]"))
+        return
 
-    # Core identification execution
-    print(f"[INFO] Initializing system identification for target variable: '{target_variable}'")
-    print(f"[INFO] Input feature tensor shape: {list(X_tensor.shape)}")
+    # Visualización elegante de los datasets candidatos
+    table = Table(title="Datasets Dinámicos Disponibles", expand=True, border_style="dim")
+    table.add_column("Índice", justify="center", style="cyan", no_wrap=True)
+    table.add_column("Nombre del Archivo", style="white")
     
-    engine = IRIS(threshold=0.08, max_denominator=10)
-    l_infinity_norm = engine.fit(X_tensor, Y_tensor)
-    
-    discovered_equation = engine.get_discovered_law(
-        target_name=target_variable, 
-        custom_names=input_features
-    )
+    for idx, filename in enumerate(files):
+        table.add_row(str(idx), filename)
+    console.print(table)
 
-    # Standardized Analytical Reporting Output
-    print("\n" + "="*60)
-    print("IDENTIFIED GOVERNING LAW (SYSTEM DYNAMICS EVALUATION)")
-    print("="*60)
-    print(f"Expression: {discovered_equation}")
-    print(f"Residual Error (L_inf norm): {l_infinity_norm:.16e}")
-    print("="*60 + "\n")
+    choice_str = Prompt.ask("Selecciona el índice del dataset objetivo", choices=[str(i) for i in range(len(files))])
+    choice = int(choice_str)
+    
+    path = os.path.join(data_dir, files[choice])
+    use_rill = Confirm.ask("¿Deseas integrar el operador de pérdida lógica RILL?")
+
+    # Procesamiento de variables preservando magnitudes crudas en FLOAT64 [cite: 49, 52]
+    df = pd.read_csv(path)
+    names = df.columns.tolist()[:-1]
+    target = df.columns.tolist()[-1]
+
+    # Carga limpia sin escalamientos lineales MinMax que rompan el análisis dimensional [cite: 48]
+    x_train = torch.tensor(df[names].values, dtype=torch.float64)
+    y_train = torch.tensor(df[[target]].values, dtype=torch.float64)
+
+    model = PINN(len(names), use_logic=use_rill)
+    opt = torch.optim.Adam(model.parameters(), lr=0.005)
+    crit = RILLLoss() if use_rill else torch.nn.MSELoss()
+
+    console.print(f"\n[bold green]✓[/bold green] Arquitectura del framework configurada exitosamente en [bold white]float64 (Doble Precisión)[/bold white].")
+    
+    # Simulación del bucle de entrenamiento acoplada con barras de progreso animadas en terminal
+    with Progress(
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(bar_width=40, complete_style="green", finished_style="cyan"),
+        TaskProgressColumn(),
+        console=console
+    ) as progress:
+        epochs = 1000
+        task = progress.add_task("[yellow]Optimizando espacio continuo de la PINN...", total=epochs)
+        
+        for epoch in range(1, epochs + 1):
+            opt.zero_grad()
+            loss = crit(model(x_train), y_train)
+            loss.backward()
+            opt.step()
+            
+            if epoch % 10 == 0 or epoch == epochs:
+                progress.update(task, advance=10, description=f"[yellow]Ajustando gradientes | Loss: {loss.item():.4e}")
+
+    # Inicialización del motor de regresión simbólica masiva [cite: 1]
+    console.print("\n[bold yellow]⌛ Iniciando destilación del espacio latente y filtrado SINDy...[/bold yellow]")
+    distiller = SymbolicDistiller(model)
+    ley, err = distiller.distill(len(names), names)
+
+    out_dir = os.path.join("output", os.path.splitext(files[choice])[0])
+    
+    # Inyección de 'names' corregida para evitar el NameError
+    distiller.save_python_script(ley, os.path.join(out_dir, "formula.py"), names)
+    
+    with open(os.path.join(out_dir, "reporte.tex"), "w") as f:
+        f.write(distiller.engine.get_latex_report(target, names))
+
+    # Panel de resultados finales con métricas bajo la norma del error supremo [cite: 54]
+    result_table = Table(box=None, show_header=False, width=80)
+    result_table.add_row("[bold green]Ecuación Descubierta:[/bold green]", f"[bold white]{ley}[/bold white]")
+    result_table.add_row("[bold green]Error Supremo (L_inf):[/bold green]", f"[cyan]{err:.6e}[/cyan]")
+    result_table.add_row("[bold green]Código Sintetizado:[/bold green]", f"[dim]{out_dir}/formula.py[/dim]")
+    result_table.add_row("[bold green]Reporte Científico:[/bold green]", f"[dim]{out_dir}/reporte.tex[/dim]")
+
+    console.print("\n")
+    console.print(Panel(result_table, title="[bold white]Resultados de la Destilación Axiomática[/bold white]", border_style="green"))
+    console.print("\n")
 
 if __name__ == "__main__":
     main()
