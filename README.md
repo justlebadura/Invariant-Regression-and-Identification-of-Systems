@@ -121,3 +121,30 @@ Al iniciar, se desplegará una interfaz avanzada en la interfaz de comandos con 
 * **Bloque de Resultados:** Tras finalizar la destilación simbólica, se imprimirá un panel detallado que muestra la ecuación matemática exacta descubierta, el error supremo (`L_inf`) alcanzado y las rutas donde se guardaron automáticamente el reporte formal en LaTeX (`.tex`) y el script ejecutable en Python (`formula.py`).
 
 ```
+
+---
+
+## Integración Práctica y Casos de Uso: Caso de Estudio SafeWay
+
+El motor neuro-simbólico `IRIS` de este framework fue utilizado para resolver un problema de producción crítico en la plataforma de rutas viales seguras **SafeWay**, logrando reemplazar una red neuronal de aprendizaje continuo por una ecuación matemática analítica equivalente.
+
+### 1. El Desafío de Producción en SafeWay
+La arquitectura original de SafeWay utilizaba una red neuronal híbrida **GNN-LNN** (Graph Neural Network + Liquid Neural Network) entrenada "al vuelo" en cada consulta API de ruta. Esto generaba dos problemas:
+1. **Inviabilidad en Tiempo Real:** Latencia de **810.83 ms** debido a la sobrecarga del bucle de entrenamiento dinámico.
+2. **Sub-entrenamiento e Inseguridad:** Limitar el entrenamiento a 30 épocas para responder rápido provocaba que la red no convergiera, entregando predicciones de riesgo casi homogéneas ($\approx 1.25$ con desviación de $0.0003$). Esto neutralizaba el ruteo inteligente Dijkstra, creando rutas potencialmente peligrosas para el usuario.
+
+### 2. Metodología de Destilación Neuro-Simbólica
+Para capturar la representación interna de la red neuronal GNN-LNN una vez entrenada offline (1500 épocas, pérdida final $0.000005$), se estructuró el siguiente flujo:
+1. **Generación de Datos Dinámicos:** Se mapearon los 175 nodos viales bajo todas las combinaciones posibles de horas del día y clima de lluvia (8,400 muestras combinadas), guardando los resultados del modelo de deep learning en `data/network_predictions.csv`.
+2. **Convolución del Grafo a nivel $O(1)$:** El paso convolucional de paso de mensajes de la capa GCN se aproximó analíticamente en la API utilizando álgebra local basada en el grado de los nodos y vecindarios físicos:
+   $$\tilde{x}_i = \sum_{j \in \mathcal{N}(i) \cup \{i\}} \frac{x_j}{\sqrt{\tilde{D}_{ii} \tilde{D}_{jj}}}$$
+3. **Optimización Simbólica (SINDy):** Usando el motor de regresión de este framework sobre las características convolucionadas de la red de grafos, se destiló la ley matemática subyacente.
+
+### 3. La Ecuación Descubierta (99.04% de Correlación)
+La ley matemática que gobierna el cálculo de riesgo de la red neuronal híbrida es:
+
+$$\text{Riesgo}_i(h, r, s_{\text{conv}}, n_{\text{conv}}) = 2.47456 + 0.07559 r + 0.22642 h + 0.00649 \sin(2\pi h) - 0.02560 \cos(2\pi h) - 0.20942 (s_{\text{conv}})_i - 0.02797 (n_{\text{conv}})_i$$
+
+*   **Correlación Pearson con el modelo PyTorch:** **`99.04%`**
+*   **Diferencia máxima ($L_\infty$):** **`1.83%`** de discrepancia máxima absoluta.
+*   **Aceleración Computacional:** La evaluación de esta fórmula toma **`0.05 ms`**, lo que representa un aumento de velocidad de **`16,216.6×`** respecto al entrenamiento en tiempo real, logrando ruteo de seguridad vial instantáneo en el navegador del cliente.
