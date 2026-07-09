@@ -65,20 +65,26 @@ class IRIS:
         Y_np = Y.detach().numpy().reshape(-1, 1) if torch.is_tensor(Y) else Y.reshape(-1, 1)
         Y_np = Y_np.astype(np.float64)
         
-        active = np.arange(Phi.shape[1])
+        # Normalización de columnas para evitar el sesgo de escala y desbordamientos [cite: 37]
+        scale_factors = np.max(np.abs(Phi), axis=0)
+        scale_factors[scale_factors < 1e-12] = 1.0
+        Phi_scaled = Phi / scale_factors
+        
+        active = np.arange(Phi_scaled.shape[1])
         
         # Algoritmo de Mínimos Cuadrados Secuenciales con Umbral Estricto (SINDy) [cite: 7, 35]
         for _ in range(20):
             if len(active) == 0:
                 break
-            W_active, _, _, _ = np.linalg.lstsq(Phi[:, active], Y_np, rcond=None)
-            W_full = np.zeros(Phi.shape[1], dtype=np.float64)
+            W_active, _, _, _ = np.linalg.lstsq(Phi_scaled[:, active], Y_np, rcond=None)
+            W_full = np.zeros(Phi_scaled.shape[1], dtype=np.float64)
             W_full[active] = W_active.flatten()
             
             # Poda quirúrgica iterativa basada en el hiperparámetro estricto lambda [cite: 38]
             active = np.where(np.abs(W_full) >= self.threshold)[0]
             
-        self.weights = W_full
+        # Escalar los pesos de vuelta a la magnitud física cruda [cite: 49]
+        self.weights = W_full / scale_factors
         self.last_mse = float(np.mean((Phi @ self.weights.reshape(-1, 1) - Y_np)**2))
         
         # Retorna el error bajo la norma del error supremo (L_infinity) [cite: 8, 54]
@@ -90,6 +96,8 @@ class IRIS:
             if abs(w) > 1e-9:
                 # Operador de Perfección Decimal Racional limitado estrictamente a d_max = 10 [cite: 42, 45]
                 f = Fraction(float(w)).limit_denominator(10)
+                if f.numerator == 0:
+                    continue
                 s = "+" if f.numerator > 0 else "-"
                 
                 if f.denominator == 1:
