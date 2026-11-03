@@ -10,6 +10,6 @@ def setup_logger():
         datefmt="[%X]",
         handlers=[RichHandler(rich_tracebacks=True, markup=True)]
     )
-    return logging.getLogger("IRIS")
+    return logging.getLogger("RIIS")
 
 log = setup_logger()

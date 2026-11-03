@@ -1,0 +1,25 @@
+<!doctype html><html><body>
+<script>
+window.__errs=[];
+window.onerror=(m,s,l)=>{__errs.push(String(m)+" @"+String(s).split("/").pop()+":"+l)};
+</script>
+<script src="http://localhost:8017/interface/engine.js"></script>
+<script src="http://localhost:8017/interface/physics.js"></script>
+<script src="http://localhost:8017/interface/katex_local_stub.js"></script> 
+<script src="http://localhost:8017/interface/pendulum.js"></script>
+<script src="http://localhost:8017/interface/sandbox.js"></script>
+<script src="http://localhost:8017/interface/pinn.js"></script>
+<script src="http://localhost:8017/interface/fluid.js"></script>
+<script src="http://localhost:8017/interface/pipes.js"></script>
+<script src="http://localhost:8017/interface/app.js"></script>
+<script>
+setTimeout(()=>{
+ // click through tabs
+ document.querySelectorAll(".tab").forEach(t=>t.click());
+},1500);
+setTimeout(()=>{
+ requestAnimationFrame(()=>requestAnimationFrame(()=>{
+   document.title="ERR:"+JSON.stringify(window.__errs.slice(0,4))+"·views:"+document.querySelectorAll(".view").length+"·canvas:"+(!!document.getElementById("view-pendulum canvas"));
+ }));
+},5000);
+</script></body></html>

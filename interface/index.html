@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RIIS — Descubrimiento de Leyes Dinámicas</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" crossorigin="anonymous" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="logo">R<span class="dot">Ï</span>S</div>
+    <div class="tagline">Invariant Regression &amp; Identification of Systems</div>
+    <nav class="tabs">
+      <button class="tab active" data-view="pendulum">Péndulo</button>
+      <button class="tab" data-view="sandbox">Órbitas</button>
+      <button class="tab" data-view="fluid">Fluidos 3D</button>
+      <button class="tab" data-view="about">Método</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- ===================== PÉNDULO ===================== -->
+    <section id="view-pendulum" class="view active">
+      <div class="canvas-wrap glass">
+        <canvas id="pendulum-canvas"></canvas>
+        <div class="overlay-chip" id="pd-hint">
+          la app mide (θ, α) en vivo y cada ~3 s destila la ley que gobierna todos los péndulos
+        </div>
+      </div>
+      <aside class="side glass">
+        <h2>Péndulos</h2>
+        <div class="btnrow">
+          <button id="pend-remove" class="btn">− Quitar</button>
+          <b class="pend-count" id="pend-count-val">1</b>
+          <button id="pend-add" class="btn">+ Añadir</button>
+        </div>
+        <h2>Parámetros</h2>
+        <label>Longitud L <span id="pend-l-val">1.00 m</span><input id="pend-l" type="range" min="0.3" max="2.5" step="0.05" value="1" /></label>
+        <label>Gravedad g <span id="pend-g-val">9.80 m/s²</span><input id="pend-g" type="range" min="1" max="15" step="0.1" value="9.8" /></label>
+        <label>Amplitud θ₀ <span id="pend-a-val">120°</span><input id="pend-a" type="range" min="10" max="170" step="2" value="120" /></label>
+        <div class="btnrow">
+          <button id="pend-release" class="btn">Soltar de nuevo</button>
+          <button id="pend-ghost" class="btn ghost">Ley fantasma: <b>OFF</b></button>
+        </div>
+        <h2>Red puliendo la ley</h2>
+        <p class="hint">Muestras capturadas: <span id="pend-samples">0</span></p>
+        <div class="equation-box" id="pend-equation">…destilación en curso…</div>
+        <div class="metrics" id="pend-metrics"></div>
+        <div class="btnrow">
+          <button id="pend-distill" class="btn accent">Destilar ley</button>
+          <button id="pend-latex" class="btn">Copiar LaTeX</button>
+        </div>
+      </aside>
+    </section>
+
+    <!-- ===================== SANDBOX ÓRBITAS ===================== -->
+    <section id="view-sandbox" class="view">
+      <div class="canvas-wrap glass">
+        <canvas id="sandbox-canvas"></canvas>
+        <div class="vread" id="sb-vread" style="display:none"></div>
+        <div class="overlay-chip" id="sb-hint">
+          <b>Colocar</b>: clic = cuerpo detenido · <b>Lanzar</b>: arrastra para darle velocidad · <b>Mover</b>: arrastra cuerpos o la cámara · la barra inferior elige la masa · los cuerpos colisionan y se fusionan
+        </div>
+        <div class="launcher" id="sb-launcher">
+          <div class="btnrow stoolbar">
+            <button class="btn small stool active" data-t="place" title="clic = colocar cuerpo detenido">Colocar</button>
+            <button class="btn small stool" data-t="launch" title="arrastrar = lanzar con velocidad">Lanzar</button>
+            <button class="btn small stool" data-t="move" title="arrastrar vacío = desplazar cámara · arrastra cuerpo = moverlo">Mover</button>
+          </div>
+          <div class="btnrow">
+            <button class="ltype" data-m="5" data-color="#c9a37c" data-r="5" title="Asteroide">☄︎ 5</button>
+            <button class="ltype active" data-m="20" data-color="#7cf39a" data-r="7" title="Planeta">🪐 20</button>
+            <button class="ltype" data-m="300" data-color="#f0b866" data-r="12" title="Gigante">🜨 300</button>
+            <button class="ltype" data-m="3000" data-color="#ff6b5e" data-r="18" title="Estrella">☀︎ 3000</button>
+          </div>
+          <button class="btn orbit" id="sb-orbit" title="al soltar el lanzamiento, la velocidad se ajusta exactamente a la velocidad circular">⟳ órbita circular</button>
+        </div>
+      </div>
+      <aside class="side glass">
+        <h2>Escenarios</h2>
+        <div class="btnrow wrap">
+          <button class="btn small preset" data-p="sistema">Sol + 2 planetas</button>
+          <button class="btn small preset" data-p="figura8">Figura-8</button>
+          <button class="btn small preset" data-p="binario">Binario</button>
+        </div>
+        <h2>Sistema</h2>
+        <label>Constante G <span id="sb-g-val">1.0</span><input id="sb-g" type="range" min="0.1" max="3" step="0.1" value="1" /></label>
+        <label>Masa del sol <span id="sb-m-val">3000</span><input id="sb-m" type="range" min="500" max="8000" step="100" value="3000" /></label>
+        <label>Velocidad de reloj <span id="sb-t-val">1.0×</span><input id="sb-t" type="range" min="0.1" max="3" step="0.1" value="1" /></label>
+        <div class="btnrow wrap">
+          <button id="sb-pause" class="btn">Pausa</button>
+          <button id="sb-clear" class="btn">Limpiar</button>
+        </div>
+        <div class="inspector" id="sb-inspector">Selecciona un cuerpo…</div>
+        <h2>¿Qué información dar a la red?</h2>
+        <div class="checkrow">
+          <label><input type="checkbox" class="feat" value="x" checked /> x</label>
+          <label><input type="checkbox" class="feat" value="y" checked /> y</label>
+          <label><input type="checkbox" class="feat" value="r" /> dist. al sol</label>
+          <label><input type="checkbox" class="feat" value="vx" /> vₓ</label>
+          <label><input type="checkbox" class="feat" value="vy" /> vᵧ</label>
+        </div>
+        <h2>Destilación</h2>
+        <div class="btnrow">
+          <button id="sb-target" class="btn">Objetivo: aₓ</button>
+          <button id="sb-distill" class="btn accent">Destilar ley</button>
+        </div>
+        <div class="equation-box" id="sb-equation">…</div>
+        <div class="metrics" id="sb-metrics"></div>
+        <div class="btnrow">
+          <button id="sb-csv" class="btn">Exportar CSV</button>
+          <button id="sb-latex" class="btn">Copiar LaTeX</button>
+        </div>
+      </aside>
+    </section>
+
+    <!-- ===================== FLUIDOS: TUBERÍAS y LABORATORIO PINN ===================== -->
+    <section id="view-fluid" class="view">
+      <div class="scene-switch btnrow">
+        <button class="btn small active" data-flscene="pipes">🚰 Tuberías y trampas</button>
+        <button class="btn small" data-flscene="abc">🧪 Laboratorio PINN (ABC)</button>
+      </div>
+
+      <!-- ESCENA: TUBERÍAS -->
+      <div id="fl-pipes" class="fluid-layout">
+        <div class="canvas-wrap glass fluid-canvas-wrap">
+          <canvas id="pw-canvas"></canvas>
+          <div class="overlay-chip" id="pw-hint">
+            <b>cliquea una válvula</b> cerrarla la corta (verde=abierta, roja=cerrada) · trampas U retienen el agua
+          </div>
+        </div>
+        <aside class="side glass" id="fl-controls-pw">
+          <h2>Escenarios</h2>
+          <div class="btnrow wrap" id="pw-presets">
+            <button class="btn small preset-pw accent" data-p="circuito">Circuito doble</button>
+            <button class="btn small preset-pw" data-p="lavabo">Lavabo con trampa P</button>
+            <button class="btn small preset-pw" data-p="sifones">Doble sifón</button>
+          </div>
+          <h2>Caudal y agua</h2>
+          <label>Caudal <span id="pw-caudal-val">1.0×</span><input id="pw-caudal" type="range" min="0.2" max="2" step="0.1" value="1" /></label>
+          <label>Turbulencia <span id="pw-turb-val">50%</span><input id="pw-turb" type="range" min="0" max="1" step="0.1" value="0.5" /></label>
+          <div class="btnrow wrap">
+            <button id="pw-pause" class="btn">⏸ Pausa</button>
+          </div>
+          <div class="verdict glass" id="pw-status">
+            <b>¿Qué pasa al cerrar una válvula?</b> El agua pierde su camino de flujo (continuidad): las partículas aguas abajo quedan sin impulso y se agota el tramo — como un circuito real cortado. Abre otra válvula y la red se re-equilibra al instante.
+          </div>
+        </aside>
+      </div>
+
+      <!-- ESCENA: ABC / PINN -->
+      <div id="fl-abc" class="fluid-layout hidden">
+        <div class="canvas-wrap glass fluid-canvas-wrap">
+          <canvas id="fl-canvas"></canvas>
+          <div class="overlay-chip" id="fl-hint">
+            arrastra = orbitar cámara · rueda = zoom · un flujo Beltrami (ABC): solución <b>exacta</b> de Navier–Stokes
+          </div>
+          <div class="src-switch">
+            <label><input type="radio" name="fl-src" value="exact" checked /> Exacta</label>
+            <label><input type="radio" name="fl-src" value="pinn" /> PINN <span class="mono tiny">red neuronal</span></label>
+            <label><input type="radio" name="fl-src" value="cfd" /> CFD <span class="mono tiny">sim. numérica</span></label>
+          </div>
+        </div>
+        <aside class="side glass hidden" id="fl-controls-abc">
+          <h2>Flujo ABC (Navier–Stokes exacto)</h2>
+          <p class="hint">Partículas siguen u(x,t): u = (A·sin z + C·cos y, B·sin x + A·cos z, C·sin y + B·cos x)·e<sup>−νt</sup>. Tres generadores compiten: la solución analítica, una <b>PINN</b> (red que aprende NS en tu navegador) y un <b>solver CFD</b> numérico en malla 12³.</p>
+          <h2>Parámetros (¡cámbialos con cada fuente!)</h2>
+          <label>Viscosidad ν <span id="fl-nu-val">0.30</span><input id="fl-nu" type="range" min="0.05" max="0.8" step="0.05" value="0.3" /></label>
+          <label>Amplitud A <span id="fl-a-val">1.00</span><input id="fl-a" type="range" min="0.2" max="1.3" step="0.05" value="1" /></label>
+          <label>Amplitud B <span id="fl-b-val">1.00</span><input id="fl-b" type="range" min="0.2" max="1.3" step="0.05" value="1" /></label>
+          <label>Amplitud C <span id="fl-c-val">1.00</span><input id="fl-c" type="range" min="0.2" max="1.3" step="0.05" value="1" /></label>
+          <label>Reloj <span id="fl-clock-val">1.0×</span><input id="fl-clock" type="range" min="0.1" max="3" step="0.1" value="1" /></label>
+          <div class="btnrow wrap">
+            <button id="fl-pause" class="btn">⏸ Pausa</button>
+            <button id="fl-reseed" class="btn">↺ Partículas</button>
+            <button id="fl-train" class="btn active">Entrenar PINN</button>
+            <button id="fl-retrain" class="btn">Reiniciar red</button>
+            <button id="fl-cfdreset" class="btn">Reiniciar CFD</button>
+          </div>
+          <h2>Costo computacional (medido en vivo)</h2>
+          <div class="cost-grid">
+            <div class="cost-col pinn">
+              <h3>PINN</h3>
+              <div class="cost-row"><span>entrenamiento acumulado</span><b id="fl-p-ms">0 ms</b></div>
+              <div class="cost-row"><span>epochs · muestras</span><b><span id="fl-p-ep">0</span> · <span id="fl-p-smp">0k</span></b></div>
+              <div class="cost-row"><span>error vs analítica</span><b id="fl-p-err">—</b></div>
+              <div class="cost-row"><span id="fl-p-note">precargada (err≈0.09) · cambia ν ⇒ respuesta al instante</span></div>
+              <div class="cost-row"><span>inferencia / frame</span><b id="fl-p-infer">—</b></div>
+              <div class="bar-wrap"><div class="bar" id="fl-bar-p"></div></div>
+              <div class="bar-val mono" id="fl-bar-p-v">—</div>
+            </div>
+            <div class="cost-col cfd">
+              <h3>CFD (12³)</h3>
+              <div class="cost-row"><span>pasos integrados</span><b id="fl-c-steps">0</b></div>
+              <div class="cost-row"><span>costo total</span><b id="fl-c-ms">0 ms</b></div>
+              <div class="cost-row"><span>por paso (12³ Jacobi)</span><b id="fl-c-msstep">—</b></div>
+              <div class="cost-row"><span>cambiar ν ⇒ re-simular hasta t=6</span><b id="fl-c-res">—</b></div>
+              <div class="bar-wrap"><div class="bar" id="fl-bar-c"></div></div>
+              <div class="bar-val mono" id="fl-bar-c-v">—</div>
+            </div>
+          </div>
+          <div class="verdict glass" id="fl-verdict">
+            <b>La ventaja de la PINN:</b> la red aprende u(x, y, z, t, ν, A, B, C) — los parámetros de la PDE son <b>entradas</b>, no constantes re-entrenadas. Cambia ν con la red activa: responde al instante. El CFD numérico debe re-integrar desde t=0 — ese es el costo que la física embebida en la red elimina.
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ===================== MÉTODO ===================== -->
+    <section id="view-about" class="view">
+      <article class="glass about">
+        <h2>El método en cuatro etapas</h2>
+        <ol>
+          <li><b>Φ(X) — biblioteca espectral:</b> expandimos los datos a hipótesis candidatas: polinomios ≤ 3, inversos racionales (singularidades), sinusoides y constantes.</li>
+          <li><b>OMP/SINDy — poda parcial:</b> mínimos cuadrados cifras (Householder QR) y poda estricta de pesos <span class="mono">λ = 0.08</span>, manteniendo sólo las columnas explicativas reales.</li>
+          <li><b>Perfeccionamiento diofántico:</b> cada coeficiente se purifica a una fracción exacta con denominador ≤ 10 (fracciones continuas: −0.99999 → −1).</li>
+          <li><b>Ley pura y legible:</b> el resultado es una ecuación física exacta, interpretable y exportable a LaTeX o código Python/JS ejecutable.</li>
+        </ol>
+        <h2>Problemas de exhibición</h2>
+        <div class="demo-eq"><span>Péndulo nonlinear</span><span class="mono">θ̈ = −(g/L)·sin θ</span></div>
+        <div class="demo-eq"><span>Órbita central</span><span class="mono">a = −μ/r²</span></div>
+        <div class="demo-eq"><span>Duffing (doble pozo)</span><span class="mono">ẍ = −x − x³/2</span></div>
+        <div class="demo-eq"><span>Resistencia cuadrática</span><span class="mono">ȧ = −g + k·v²</span></div>
+        <div class="demo-eq"><span>Resonancia forzada</span><span class="mono">ẍ = −ω₀²x + F·sin t</span></div>
+        <div class="demo-eq"><span>Gravedad 2D</span><span class="mono">a⃗ = −μ·r⃗/r³</span></div>
+        <p class="hint">Todo corre localmente en tu navegador: el motor es el mismo que la CLI <span class="mono">python main.py</span>, portado a JS.</p>
+      </article>
+    </section>
+  </main>
+
+  <script src="engine.js"></script>
+  <script src="physics.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js" crossorigin="anonymous"></script>
+  <script src="pendulum.js"></script>
+  <script src="sandbox.js"></script>
+  <script src="pinn.js"></script>
+  <script src="fluid.js"></script>
+  <script src="pipes.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

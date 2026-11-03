@@ -1,0 +1,4 @@
+<!doctype html><html><body><b id="out">start</b>
+<script>window.__errs=[];window.onerror=(m,s,l)=>{__errs.push(String(m)+":"+l)}</script>
+<script src="interface/engine.js"></script><script src="interface/physics.js"></script><script src="interface/pendulum.js"></script><script src="interface/sandbox.js"></script><script src="interface/pinn.js"></script><script src="interface/fluid.js"></script><script src="interface/pipes.js"></script><script src="interface/app.js"></script>
+<script>document.getElementById("out").textContent="OK:"+(window.RIIS?Object.keys(window.RIIS).join(","):"noRIIS")+" ERR:"+window.__errs.join("|")</script></body></html>

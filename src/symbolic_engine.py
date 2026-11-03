@@ -2,7 +2,7 @@ import torch
 import numpy as np
 from fractions import Fraction
 
-class IRIS:
+class RIIS:
     def __init__(self, threshold=0.08):
         # Hiperparámetro de corte estricto lambda = 0.08 según especificaciones del paper [cite: 38]
         self.threshold = threshold
@@ -18,6 +18,10 @@ class IRIS:
         terms = []
         self.feature_names = []
         eps = 1e-15  # Estabilizador numérico estricto contra indeterminaciones por cero [cite: 27]
+
+        # 0. Sub-biblioteca Constante (término de sesgo / campos uniformes)
+        terms.append(np.ones((X_np.shape[0], 1)))
+        self.feature_names.append("1")
 
         # 1. Sub-biblioteca Polinomial Espacial (Hasta 3er Grado y términos cruzados) [cite: 23, 24]
         for i in range(num_vars):
@@ -113,4 +117,4 @@ class IRIS:
 
     def get_latex_report(self, target, names):
         law = self.get_discovered_law(target, names)
-        return f"\\section*{{Reporte Axiomático del Motor Simbólico IRIS}}\n\\textbf{{Ley Física Destilada:}} ${law}$\\\\\n\\textbf{{Error Cuadrático Medio (MSE):}} {self.last_mse:.2e}"
+        return f"\\section*{{Reporte Axiomático del Motor Simbólico RIIS}}\n\\textbf{{Ley Física Destilada:}} ${law}$\\\\\n\\textbf{{Error Cuadrático Medio (MSE):}} {self.last_mse:.2e}"

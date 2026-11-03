@@ -126,7 +126,7 @@ Al iniciar, se desplegará una interfaz avanzada en la interfaz de comandos con 
 
 ## Integración Práctica y Casos de Uso: Caso de Estudio SafeWay
 
-El motor neuro-simbólico `IRIS` de este framework fue utilizado para resolver un problema de producción crítico en la plataforma de rutas viales seguras **SafeWay**, logrando reemplazar una red neuronal de aprendizaje continuo por una ecuación matemática analítica equivalente.
+El motor neuro-simbólico `RIIS` de este framework fue utilizado para resolver un problema de producción crítico en la plataforma de rutas viales seguras **SafeWay**, logrando reemplazar una red neuronal de aprendizaje continuo por una ecuación matemática analítica equivalente.
 
 ### 1. El Desafío de Producción en SafeWay
 La arquitectura original de SafeWay utilizaba una red neuronal híbrida **GNN-LNN** (Graph Neural Network + Liquid Neural Network) entrenada "al vuelo" en cada consulta API de ruta. Esto generaba dos problemas:
@@ -148,3 +148,15 @@ $$\text{Riesgo}_i(h, r, s_{\text{conv}}, n_{\text{conv}}) = 2.47456 + 0.07559 r 
 *   **Correlación Pearson con el modelo PyTorch:** **`99.04%`**
 *   **Diferencia máxima ($L_\infty$):** **`1.83%`** de discrepancia máxima absoluta.
 *   **Aceleración Computacional:** La evaluación de esta fórmula toma **`0.05 ms`**, lo que representa un aumento de velocidad de **`16,216.6×`** respecto al entrenamiento en tiempo real, logrando ruteo de seguridad vial instantáneo en el navegador del cliente.
+---
+
+## Interfaz RIIS (100% navegador — sin servidor)
+
+Aplicación web interactiva en `interface/` que demuestra el motor en vivo. Abre directamente `interface/index.html` (por ejemplo `python -m http.server` y visita `http://localhost:8000/interface/`). No requiere instalación: el motor de descubrimiento (SINDy + OMP con QR de Householder, purificación diofántica y desempate por simplicidad) está portado íntegramente a JavaScript (`engine.js`), y la física (RK4 péndulo, integrador Verlet de N cuerpos con potencial suavizado) está en `physics.js`.
+
+### Vistas
+
+1. **Péndulo** — hasta **6 péndulos simultáneos** (botones +/−): cada uno cuelga de su pivote con su color y su ghost propio, y todos alimentan la misma destilación. Sliders de longitud `L`, gravedad `g` y ángulo inicial `θ₀`. La app acumula muestras `(θ, α)` y cada ~3 s destila en vivo la ley que gobierna el movimiento, mostrando −49/10·sin(θ) descubierta sola; el toggle de "ley fantasma" superpone un péndulo teórico para comparar módulo.
+2. **Órbitas (sandbox N cuerpos)** — con el mouse: **arrastrar y soltar** lanza un planeta con la velocidad del gesto; **clic derecho** elimina; rueda hace zoom. Presets listos (sistema solar, binaria, figura-8 de Chenciner–Montgomery). Slider de ajuste de masa de un sol ("agarrar" con clic izquierdo y soltar para fijar masa), `G`, y velocidad del reloj. Se eligen las variables observables (x, y, r, vx, vy) y el objetivo (ax o ay): la app exporta el CSV de la simulación y descubre la ley de gravitación −M·x/r³.
+3. **Método** — catálogo de las leyes de exhibición que el motor resuelve exactamente con ruido de ~1% (péndulo, Kepler, Duffing, fricción cuadrática, resonancia forzada, gravitación 2D), con su estado de entrada/salida de la biblioteca Φ.
+4. **Fluidos (dos escenas)** — **Tuberías y trampas**: agua (partículas 2D con glow) fluyendo por una red de tuberías con el flujo resuelto por continuidad (BFS desde la fuente); presets «Circuito doble», «Lavabo con trampa P» y «Doble sifón»; **clic en una válvula** la abre/cierra y corta el flujo aguas abajo en vivo; caudal y turbulencia ajustables. **Laboratorio PINN (ABC)**, demo 3D (WebGL, 2 400 partículas) del flujo ABC, solución **exacta** de Navier–Stokes (Beltrami ω = u, decae e^{−νt}) con tres generadores en la misma escena: la solución analítica; una **PINN** (`pinn.js`, MLP 8→24→24→24→4, 1 516 pesos, Adam, pérdida de datos + residuo de NS por diferencias finitas, entrenada 100% en tu navegador; **viene pre-entrenada**: `pinn_weights.json` entrena offline 8 000 epochs, err≈0.09, y se precarga al abrir — el botón «Reiniciar red» también devuelve la precarga); y un **solver CFD** numérico (`fluid.js`, malla 12³). El panel de **costo computacional** mide milisegundos reales; la ventaja de la PINN es visible: ν, A, B, C, t son **entradas de la red** — cambiar ν responde al instante; el CFD debe re-integrar desde t=0. El bucle maestro de la app está blindado (`try/catch` por módulo): un fallo en una vista nunca congela las demás.

@@ -1,12 +1,12 @@
 import torch
 import os
 import numpy as np
-from src.symbolic_engine import IRIS
+from src.symbolic_engine import RIIS
 
 class SymbolicDistiller:
     def __init__(self, model):
         self.model = model
-        self.engine = IRIS()
+        self.engine = RIIS()
 
     def distill(self, input_dim, names):
         # Evaluación masiva sobre el espacio espectral latente en float64 [cite: 6, 52]

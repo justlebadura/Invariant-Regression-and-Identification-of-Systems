@@ -1,0 +1,15 @@
+<!doctype html><html><body>
+<script>window.__errs=[];window.onerror=(m,s,l)=>{__errs.push(String(m)+" @"+String(s).split("/").pop()+":"+l)}</script>
+<script src="interface/engine.js"></script>
+<script src="interface/physics.js"></script>
+<script src="interface/pendulum.js"></script>
+<script src="interface/sandbox.js"></script>
+<script src="interface/pinn.js"></script>
+<script src="interface/fluid.js"></script>
+<script src="interface/pipes.js"></script>
+<script src="interface/app.js"></script>
+<script>
+setTimeout(()=>{document.title="T1:"+(window.RIIS?Object.keys(window.RIIS):"noRIIS");},300);
+setTimeout(()=>{document.querySelectorAll(".tab").forEach(t=>t.click())},1200);
+setTimeout(()=>{document.title="T2err:"+window.__errs.length+":"+JSON.stringify(window.__errs.slice(0,3))},2600);
+</script></body></html>
